@@ -30,13 +30,24 @@ pip install -e .
 
 Run tests using pytest:
 ```bash
-pytest tests/
+invoke test
+```
+
+Run tests with coverage:
+```
+invoke test-coverage
 ```
 
 Run a specific test file. Example for testing the octal encoder:
 ```
 pytest tests/tools/encoders/test_octal.py
 ```
+
+## Other Commands
+
+Clean build artifacts:
+```bash
+invoke clean
 
 ## License
 

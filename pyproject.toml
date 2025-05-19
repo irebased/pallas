@@ -6,15 +6,20 @@ build-backend = "setuptools.build_meta"
 name = "pallas"
 version = "0.1.0"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" },
+    { name = "Rebase", email = "rebased.again@gmail.com" },
 ]
-description = "A Python package for Pallas"
+description = "A Python package for generating and executing tool chains for base conversion-based ciphers."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+]
+dependencies = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.1.0",
+    "invoke>=2.2.0",
 ]
 
 [tool.setuptools]

@@ -40,3 +40,6 @@ htmlcov/
 # Distribution
 dist/
 build/
+
+# Misc
+.DS_Store

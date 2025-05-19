@@ -1,0 +1,16 @@
+[run]
+source = src/pallas
+omit =
+    */tests/*
+    */__init__.py
+    */__pycache__/*
+    */_version.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
