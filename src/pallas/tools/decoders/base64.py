@@ -12,4 +12,7 @@ class Base64Decoder(Tool):
         )
 
     def _process(self, input_str: str) -> str:
-        return base64.b64decode(input_str.encode()).decode()
+        # First decode the base64 string to bytes
+        decoded_bytes = base64.b64decode(input_str)
+        # Then interpret those bytes as latin1 characters
+        return decoded_bytes.decode('latin1')

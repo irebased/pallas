@@ -1,4 +1,5 @@
 import pytest
+import base64
 from pallas.tools.decoders.base64 import Base64Decoder
 from pallas.common import EXTENDED_ASCII_CHARSET, BASE64_CHARSET
 
@@ -28,3 +29,8 @@ def test_base64_decoder_process():
 
     # Test string with mixed content
     assert decoder._process("SGVsbG8xMjMh") == "Hello123!"
+
+def test_base64_decoder_extended_ascii():
+    """Test Base64Decoder with extended ASCII characters."""
+    decoder = Base64Decoder()
+    assert decoder._process("w6w=") == "Ã¬"
