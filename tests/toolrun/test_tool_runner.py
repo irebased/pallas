@@ -54,9 +54,6 @@ def test_tool_runner_initialization(toolchains_file):
     assert runner.toolchains_file == Path(toolchains_file)
     assert runner.input_text == "test input"
     assert runner.tools == {}
-    assert runner.output_file.parent == Path("out")
-    assert runner.output_file.name.startswith("toolrun_")
-    assert runner.output_file.name.endswith(".txt")
     assert not runner.verbose
 
 def test_tool_runner_verbose_initialization(toolchains_file):

@@ -24,8 +24,9 @@ class ToolRunner:
         self.tools_dir = tools_dir
         self.verbose = verbose
         self.tools: Dict[str, Tool] = {}
-        self.output_file = Path('out') / (output_filename or 'toolrun.txt')
-        self.output_file.parent.mkdir(parents=True, exist_ok=True)
+        self.run_id = str(uuid.uuid4())
+        self.output_dir = Path('out')
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.stats = {
             'chains_processed': 0,
             'chains_succeeded': 0,
@@ -84,11 +85,16 @@ class ToolRunner:
         # First pass: load all tools
         self._load_tools()
 
-        # Second pass: execute chains and write to single output file
+        # Second pass: execute chains and write to separate output files
         self._log(f"\nExecuting chains from {self.toolchains_file}")
-        self._log(f"Output will be written to {self.output_file}")
 
-        with open(self.output_file, 'w') as out_f:
+        success_file = self.output_dir / f'toolrun_succeeded_{self.run_id}.txt'
+        failed_file = self.output_dir / f'toolrun_failed_{self.run_id}.txt'
+
+        self._log(f"Successful chains will be written to {success_file}")
+        self._log(f"Failed chains will be written to {failed_file}")
+
+        with open(success_file, 'w') as success_f, open(failed_file, 'w') as failed_f:
             with open(self.toolchains_file) as f:
                 for line in f:
                     line = line.strip()
@@ -102,14 +108,15 @@ class ToolRunner:
                     # Execute the chain
                     try:
                         output, error = self._execute_chain(chain)
+                        chain_str = ' -> '.join(chain)
                         if error:
-                            out_f.write(f"{' -> '.join(chain)} = Error: {error}\n")
+                            failed_f.write(f"{chain_str} = Error: {error}\n")
                             self.stats['chains_failed'] += 1
                         else:
-                            out_f.write(f"{' -> '.join(chain)} = {output}\n")
+                            success_f.write(f"{chain_str} = {output}\n")
                             self.stats['chains_succeeded'] += 1
                     except Exception as e:
-                        print(f"Error executing chain {line}: {e}")
+                        failed_f.write(f"{chain_str} = Error: {str(e)}\n")
                         self.stats['chains_failed'] += 1
                         continue
 
