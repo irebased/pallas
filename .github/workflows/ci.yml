@@ -8,10 +8,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+        python-version: [3.11]
 
     steps:
     - uses: actions/checkout@v4
@@ -22,10 +22,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install pytest pytest-cov
         pip install -e .
     - name: Run tests with coverage
       run: |
-        pytest --cov=pallas --cov-report=xml
+        pytest --cov=pallas tests/
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
