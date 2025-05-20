@@ -12,6 +12,7 @@ class Base64Decoder(Tool):
         )
 
     def _process(self, input_str: str) -> str:
+        input_str = input_str.strip().replace(' ', '')
         # First decode the base64 string to bytes
         decoded_bytes = base64.b64decode(input_str)
         # Then interpret those bytes as latin1 characters
