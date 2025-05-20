@@ -8,6 +8,16 @@ A Python package for generating and executing tool chains for base conversion-ba
 pip install -e .
 ```
 
+## Running
+
+Start by running the following command:
+```
+python -m pallas.main
+```
+
+It will give you options.
+
+
 ## Development
 
 1. Create a virtual environment:

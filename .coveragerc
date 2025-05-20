@@ -1,10 +1,12 @@
 [run]
-source = src/pallas
+source = src
 omit =
     */tests/*
     */__init__.py
     */__pycache__/*
     */_version.py
+    */toolchain/ToolDiscovery.py
+    */main.py
 
 [report]
 exclude_lines =

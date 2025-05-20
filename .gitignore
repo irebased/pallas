@@ -36,6 +36,7 @@ ENV/
 .coverage
 htmlcov/
 .pytest_cache/
+/src/pallas/out/
 
 # Distribution
 dist/
