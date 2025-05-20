@@ -8,7 +8,8 @@ from pallas.toolchain.ToolDiscovery import ToolDiscovery
 class ToolRunner:
     """Class responsible for executing tool chains from a file."""
 
-    def __init__(self, toolchains_file: str, input_text: str, tools_dir: Optional[Path] = None, verbose: bool = False):
+    def __init__(self, toolchains_file: str, input_text: str, tools_dir: Optional[Path] = None,
+                 verbose: bool = False, output_filename: Optional[str] = None):
         """Initialize the tool runner.
 
         Args:
@@ -16,13 +17,14 @@ class ToolRunner:
             input_text: The input text to process through the tool chains.
             tools_dir: Path to the tools directory. If None, uses the default tools directory.
             verbose: Whether to enable verbose logging.
+            output_filename: Optional filename for the output file. If None, uses 'toolrun.txt'.
         """
         self.toolchains_file = Path(toolchains_file)
         self.input_text = input_text
         self.tools_dir = tools_dir
         self.verbose = verbose
         self.tools: Dict[str, Tool] = {}
-        self.output_file = Path('out') / f'toolrun_{uuid.uuid4()}.txt'
+        self.output_file = Path('out') / (output_filename or 'toolrun.txt')
         self.output_file.parent.mkdir(parents=True, exist_ok=True)
         self.stats = {
             'chains_processed': 0,

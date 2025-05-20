@@ -1,17 +1,34 @@
 import time
-from typing import List, Set, Dict
-from pallas.tools.Tool import Tool
+import os
+import uuid
+from typing import List, Set, Dict, Optional, Tuple
+from pallas.tools.Tool import Tool, ToolError
 from pathlib import Path
+from pallas.toolchain.ToolDiscovery import ToolDiscovery
 
 class ToolChainer:
-    def __init__(self, chain_length: int, tools: List[Tool], verbose: bool = False):
-        self.chain_length = chain_length
+    """Class responsible for generating valid tool chains."""
+
+    def __init__(self, tools_dir: Optional[Path] = None, max_tree_size: int = 3,
+                 output_filename: Optional[str] = None, verbose: bool = False):
+        """Initialize the tool chainer.
+
+        Args:
+            tools_dir: Path to the tools directory. If None, uses the default tools directory.
+            max_tree_size: Maximum number of tools in a chain.
+            output_filename: Optional filename for the output file. If None, uses 'toolchain.txt'.
+            verbose: Whether to enable verbose logging.
+        """
+        self.tools_dir = tools_dir
+        self.max_tree_size = max_tree_size
         self.verbose = verbose
-        self.tools = tools
+        self.tools: List[Tool] = []
+        self.valid_chains: List[List[str]] = []
+        self.visited_nodes: int = 0
+        self.output_file = Path('out') / (output_filename or 'toolchain.txt')
+        self.output_file.parent.mkdir(parents=True, exist_ok=True)
         self.invalid_connections: Dict[str, Set[str]] = {}  # tool_name -> set of invalid next tools
-        self.valid_chains: List[List[Tool]] = []
         self.pruned_chains: List[List[Tool]] = []
-        self.visited_nodes = 0
         self.pruning_stats = {
             'redundant_pairs': 0,
             'char_set_mismatch': 0,
@@ -40,143 +57,154 @@ class ToolChainer:
         if n == 0:
             return 0
         if n == 1:
-            return self.chain_length
+            return self.max_tree_size
 
         # For a tree of depth L where each node has N children:
         # Total nodes = N + N² + N³ + ... + N^L
         # This is a geometric series with first term a=N and ratio r=N
         # Sum = N(1 - N^L)/(1 - N)
-        return int(n * (1 - n**self.chain_length) / (1 - n))
+        return int(n * (1 - n**self.max_tree_size) / (1 - n))
 
-    def _is_redundant_encode_decode(self, tool_a: Tool, tool_b: Tool) -> bool:
+    def _load_tools(self) -> None:
+        """Load all available tools."""
+        discovery = ToolDiscovery(tools_dir=self.tools_dir)
+        self.tools = discovery.discover_tools()
+
+    def _is_redundant_encode_decode(self, tool1: Tool, tool2: Tool) -> bool:
+        """Check if the connection is a redundant encode-decode operation.
+
+        Args:
+            tool1: First tool in the chain.
+            tool2: Second tool in the chain.
+
+        Returns:
+            bool: True if the connection is redundant, False otherwise.
         """
-        Check if the connection between tools represents a redundant encode-decode pair.
-        Returns True if the connection should be pruned.
-        """
-        def get_base_name(tool_name: str) -> str:
-            return tool_name.rsplit('_', 1)[0]
+        # Get base names by removing _encoder or _decoder suffix
+        def get_base_name(name: str) -> str:
+            if '_encoder' in name:
+                return name.replace('_encoder', '')
+            if '_decoder' in name:
+                return name.replace('_decoder', '')
+            return name
 
-        def get_operation(tool_name: str) -> str:
-            return tool_name.split('_')[-1]
+        # Get operation type (encode or decode)
+        def get_operation(name: str) -> str:
+            if '_encoder' in name:
+                return 'encode'
+            if '_decoder' in name:
+                return 'decode'
+            return 'unknown'
 
-        base_a = get_base_name(tool_a.name)
-        base_b = get_base_name(tool_b.name)
-        op_a = get_operation(tool_a.name)
-        op_b = get_operation(tool_b.name)
+        base1 = get_base_name(tool1.name)
+        base2 = get_base_name(tool2.name)
+        op1 = get_operation(tool1.name)
+        op2 = get_operation(tool2.name)
 
-        if base_a == base_b:
-            # Prune encode -> decode and decode -> encode for same base
-            if (op_a == 'encoder' and op_b == 'decoder') or \
-               (op_a == 'decoder' and op_b == 'encoder'):
-                self.pruning_stats['redundant_pairs'] += 1
-                self._log(f"Pruning redundant {base_a} encode-decode pair: {tool_a.name} -> {tool_b.name}")
-                return True
+        # Check if it's a redundant pair (same base, opposite operations)
+        if base1 == base2 and op1 != op2 and op1 != 'unknown' and op2 != 'unknown':
+            self.pruning_stats['redundant_pairs'] += 1
+            self._log(f"Pruning redundant {base1} encode-decode pair: {tool1.name} -> {tool2.name}")
+            return True
 
         return False
 
-    def _is_valid_connection(self, tool_a: Tool, tool_b: Tool) -> bool:
+    def _is_valid_connection(self, tool1: Tool, tool2: Tool) -> bool:
+        """Check if two tools can be connected in a chain.
+
+        Args:
+            tool1: First tool in the chain.
+            tool2: Second tool in the chain.
+
+        Returns:
+            bool: True if the tools can be connected, False otherwise.
         """
-        Check if tool_a's range_chars are compatible with tool_b's domain_chars.
-        A connection is valid if there is any overlap in the character sets,
-        as tools handle invalid characters through error handling.
-        """
-        if tool_a.name in self.invalid_connections and tool_b.name in self.invalid_connections[tool_a.name]:
+        if tool1.name in self.invalid_connections and tool2.name in self.invalid_connections[tool1.name]:
             self.pruning_stats['memoized'] += 1
-            self._log(f"Using memoized invalid connection: {tool_a.name} -> {tool_b.name}")
+            self._log(f"Using memoized invalid connection: {tool1.name} -> {tool2.name}")
             return False
 
-        if self._is_redundant_encode_decode(tool_a, tool_b):
+        if self._is_redundant_encode_decode(tool1, tool2):
             return False
 
-        range_chars = tool_a.range_chars
-        domain_chars = tool_b.domain_chars
+        range_chars = tool1.range_chars
+        domain_chars = tool2.domain_chars
 
         is_valid = (range_chars.issubset(domain_chars) or
                    range_chars.issuperset(domain_chars) or
                    range_chars == domain_chars)
 
         if not is_valid:
-            if tool_a.name not in self.invalid_connections:
-                self.invalid_connections[tool_a.name] = set()
-            self.invalid_connections[tool_a.name].add(tool_b.name)
+            if tool1.name not in self.invalid_connections:
+                self.invalid_connections[tool1.name] = set()
+            self.invalid_connections[tool1.name].add(tool2.name)
             self.pruning_stats['char_set_mismatch'] += 1
-            self._log(f"Pruning due to character set mismatch: {tool_a.name} -> {tool_b.name}")
-            self._log(f"  {tool_a.name} range_chars: {sorted(range_chars)}")
-            self._log(f"  {tool_b.name} domain_chars: {sorted(domain_chars)}")
+            self._log(f"Pruning due to character set mismatch: {tool1.name} -> {tool2.name}")
+            self._log(f"  {tool1.name} range_chars: {sorted(range_chars)}")
+            self._log(f"  {tool2.name} domain_chars: {sorted(domain_chars)}")
 
         return is_valid
 
-    def _dfs(self, current_chain: List[Tool], current_tools: List[Tool]) -> None:
-        """Perform DFS to find valid tool chains."""
+    def _generate_chains(self, current_chain: List[str], available_tools: Set[str]) -> None:
+        """Recursively generate valid tool chains.
+
+        Args:
+            current_chain: Current chain being built.
+            available_tools: Set of tool names available for the next step.
+        """
         self.visited_nodes += 1
 
-        if len(current_chain) == self.chain_length:
-            self.valid_chains.append(current_chain.copy())
-            self._log(f"Found valid chain: {' -> '.join(tool.name for tool in current_chain)}")
+        if len(current_chain) >= self.max_tree_size:
             return
 
-        last_tool = current_tools[-1] if current_tools else None
-        for tool in self.tools:
-            if tool not in current_chain:
-                if last_tool is None or self._is_valid_connection(last_tool, tool):
-                    current_chain.append(tool)
-                    current_tools.append(tool)
-                    self._dfs(current_chain, current_tools)
-                    current_chain.pop()
-                    current_tools.pop()
-                else:
-                    pruned_chain = current_chain + [tool]
-                    self.pruned_chains.append(pruned_chain)
-                    self._log(f"Pruned invalid chain: {' -> '.join(tool.name for tool in pruned_chain)}")
+        for tool_name in available_tools:
+            # Skip if this would create a redundant encode-decode pair
+            if current_chain and self._is_redundant_encode_decode(
+                self.tools[current_chain[-1]], self.tools[tool_name]
+            ):
+                continue
 
-    def generate_chains(self, output_file: str) -> Path:
+            # Check if the connection is valid
+            if not current_chain or self._is_valid_connection(
+                self.tools[current_chain[-1]], self.tools[tool_name]
+            ):
+                new_chain = current_chain + [tool_name]
+                self.valid_chains.append(new_chain)
+                self._generate_chains(new_chain, available_tools - {tool_name})
+
+    def generate_chains(self, run_id: Optional[str] = None) -> Path:
         """Generate all valid tool chains and write them to a file.
 
         Args:
-            output_file: Path to the output file.
+            run_id: Optional UUID to use in the output filename. If None, uses 'toolchain.txt'.
 
         Returns:
-            Path: The directory containing the output file.
+            Path: The output directory path.
         """
         # Reset state
         self.valid_chains = []
-        self.pruned_chains = []
         self.visited_nodes = 0
-        self.pruning_stats = {
-            'redundant_pairs': 0,
-            'char_set_mismatch': 0,
-            'memoized': 0
-        }
-        self.phase_times = {}
 
-        # Calculate maximum tree size
-        max_size = self._calculate_max_tree_size()
-        if self.verbose:
-            self._log(f"Maximum tree size: {max_size}")
+        # Load tools
+        self._load_tools()
 
-        # Create output directory if it doesn't exist
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Generate chains
+        available_tools = set(range(len(self.tools)))
+        self._generate_chains([], available_tools)
 
-        # Generate chains using DFS
-        start_time = time.time()
-        self._dfs([], [])
-        self.phase_times['dfs'] = time.time() - start_time
+        # Update output filename if run_id is provided
+        if run_id:
+            self.output_file = self.output_file.parent / f'toolchain_{run_id}.txt'
 
         # Write chains to file
-        with open(output_file, 'w') as f:
+        with open(self.output_file, 'w') as f:
             for chain in self.valid_chains:
-                f.write(f"{' -> '.join(tool.name for tool in chain)}\n")
+                f.write(' -> '.join(self.tools[i].name for i in chain) + '\n')
 
         if self.verbose:
             self._log(f"Generated {len(self.valid_chains)} valid chains")
-            self._log(f"Pruned {len(self.pruned_chains)} chains")
-            self._log(f"Visited {self.visited_nodes} nodes")
             self._log("Pruning statistics:")
             for stat, count in self.pruning_stats.items():
                 self._log(f"  {stat}: {count}")
-            self._log("Phase times:")
-            for phase, duration in self.phase_times.items():
-                self._log(f"  {phase}: {duration:.2f}s")
 
-        return output_path.parent
+        return self.output_file.parent

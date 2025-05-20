@@ -2,6 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+import uuid
 
 from pallas.toolchain.ToolChainer import ToolChainer
 from pallas.toolchain.ToolDiscovery import ToolDiscovery
@@ -42,24 +43,32 @@ def run_tool_chains(toolchains_file: str, input_text: str, verbose: bool = False
     runner = ToolRunner(toolchains_file, input_text, verbose=verbose)
     runner.run()
 
-def run_full_workflow(input_text: str, chain_length: int, verbose: bool = False) -> None:
+def run_full_workflow(input_text: str, chain_length: int, verbose: bool) -> None:
     """Run the full workflow: generate chains and execute them.
 
     Args:
         input_text: The input text to process through the chains.
-        chain_length: The length of chains to generate.
-        verbose: Whether to enable verbose output.
+        chain_length: Maximum length of tool chains to generate.
+        verbose: Whether to enable verbose logging.
     """
-    # Discover tools
+    # Generate a UUID for this run
+    run_id = str(uuid.uuid4())
+
+    # Load tools
     discovery = ToolDiscovery()
     tools = discovery.discover_tools()
 
-    # Generate chains
-    chainer = ToolChainer(chain_length=chain_length, tools=tools, verbose=verbose)
-    output_dir = chainer.generate_chains('out/toolchains.txt')
+    # Generate tool chains
+    chainer = ToolChainer(max_tree_size=chain_length, verbose=verbose)
+    toolchains_dir = chainer.generate_chains(run_id=run_id)
 
-    # Run the generated chains
-    runner = ToolRunner(output_dir / 'toolchains.txt', input_text, verbose=verbose)
+    # Execute the chains
+    runner = ToolRunner(
+        toolchains_file=toolchains_dir / f'toolchain_{run_id}.txt',
+        input_text=input_text,
+        verbose=verbose,
+        output_filename=f'toolrun_{run_id}.txt'
+    )
     runner.run()
 
 def main() -> None:
@@ -75,7 +84,7 @@ def main() -> None:
         discovery = ToolDiscovery()
         tools = discovery.discover_tools()
 
-        chainer = ToolChainer(chain_length=args.length, tools=tools, verbose=args.verbose)
+        chainer = ToolChainer(max_tree_size=args.length, verbose=args.verbose)
         output_file = args.output or 'out/toolchains.txt'
         chainer.generate_chains(output_file)
 

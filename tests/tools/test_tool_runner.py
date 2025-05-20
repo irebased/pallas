@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import mock_open, patch
 from pallas.tools.Tool import Tool, ToolError
 from pallas.toolrun.ToolRunner import ToolRunner
+import uuid
 
 class MockTool(Tool):
     """Mock tool for testing."""
@@ -44,7 +45,12 @@ def toolchains_file(tmp_path):
 
 def test_tool_runner_initialization(toolchains_file):
     """Test ToolRunner initialization."""
-    runner = ToolRunner(toolchains_file, "test input")
+    run_id = str(uuid.uuid4())
+    runner = ToolRunner(
+        toolchains_file=toolchains_file,
+        input_text="test input",
+        output_filename=f'toolrun_{run_id}.txt'
+    )
     assert runner.toolchains_file == Path(toolchains_file)
     assert runner.input_text == "test input"
     assert runner.tools == {}
