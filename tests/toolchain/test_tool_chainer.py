@@ -44,7 +44,9 @@ def test_tool_chainer_initialization(mock_tools):
         assert chainer.pruning_stats == {
             'redundant_pairs': 0,
             'char_set_mismatch': 0,
-            'memoized': 0
+            'memoized': 0,
+            'unbalanced_encodings': 0,
+            'non_alternating': 0
         }
 
 def test_calculate_max_tree_size(mock_tools):
@@ -125,3 +127,89 @@ def test_empty_tools_list():
         assert chainer._calculate_max_tree_size() == 0
         chainer._generate_chains([], set())
         assert len(chainer.valid_chains) == 0
+
+def test_strict_alternating_chain_generation(mock_tools):
+    """Test that chains follow strict alternating rules when enabled."""
+    with patch("pallas.toolchain.ToolChainer.ToolDiscovery") as mock_discovery:
+        mock_discovery.return_value.discover_tools.return_value = mock_tools
+        chainer = ToolChainer(max_tree_size=3, verbose=True, strict_alternating=True)
+        chainer._load_tools()
+
+        # Generate chains
+        available_tools = set(range(len(mock_tools)))
+        chainer._generate_chains([], available_tools)
+
+        # Verify all chains follow alternating pattern
+        for chain in chainer.valid_chains:
+            for i in range(len(chain) - 1):
+                current_tool = mock_tools[chain[i]]
+                next_tool = mock_tools[chain[i + 1]]
+
+                # Check that encoders are followed by decoders and vice versa
+                if '_encoder' in current_tool.name:
+                    assert '_decoder' in next_tool.name, f"Encoder {current_tool.name} followed by non-decoder {next_tool.name}"
+                elif '_decoder' in current_tool.name:
+                    assert '_encoder' in next_tool.name, f"Decoder {current_tool.name} followed by non-encoder {next_tool.name}"
+
+def test_balanced_chain_generation(mock_tools):
+    """Test that chains are balanced when balance_encodings is enabled."""
+    with patch("pallas.toolchain.ToolChainer.ToolDiscovery") as mock_discovery:
+        mock_discovery.return_value.discover_tools.return_value = mock_tools
+        chainer = ToolChainer(max_tree_size=3, verbose=True, balance_encodings=True)
+        chainer._load_tools()
+
+        # Generate chains
+        available_tools = set(range(len(mock_tools)))
+        chainer._generate_chains([], available_tools)
+
+        # Verify we have some valid chains
+        assert len(chainer.valid_chains) > 0, "No valid chains were generated"
+
+        # Print chains for debugging
+        if chainer.verbose:
+            print("\nGenerated chains:")
+            for chain in chainer.valid_chains:
+                print(" -> ".join(mock_tools[i].name for i in chain))
+
+        # Verify all chains are balanced
+        for chain in chainer.valid_chains:
+            encode_count = sum(1 for i in chain if '_encoder' in mock_tools[i].name)
+            decode_count = sum(1 for i in chain if '_decoder' in mock_tools[i].name)
+
+            # For even length chains, counts should be equal
+            if len(chain) % 2 == 0:
+                assert encode_count == decode_count, f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders in {' -> '.join(mock_tools[i].name for i in chain)}"
+            # For odd length chains, difference should be at most 1
+            else:
+                assert abs(encode_count - decode_count) <= 1, f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders in {' -> '.join(mock_tools[i].name for i in chain)}"
+
+def test_combined_alternating_and_balanced(mock_tools):
+    """Test that chains follow both alternating and balancing rules when both are enabled."""
+    with patch("pallas.toolchain.ToolChainer.ToolDiscovery") as mock_discovery:
+        mock_discovery.return_value.discover_tools.return_value = mock_tools
+        chainer = ToolChainer(max_tree_size=4, verbose=True,
+                            strict_alternating=True, balance_encodings=True)
+        chainer._load_tools()
+
+        # Generate chains
+        available_tools = set(range(len(mock_tools)))
+        chainer._generate_chains([], available_tools)
+
+        # Verify all chains follow both rules
+        for chain in chainer.valid_chains:
+            # Check alternating pattern
+            for i in range(len(chain) - 1):
+                current_tool = mock_tools[chain[i]]
+                next_tool = mock_tools[chain[i + 1]]
+                if '_encoder' in current_tool.name:
+                    assert '_decoder' in next_tool.name
+                elif '_decoder' in current_tool.name:
+                    assert '_encoder' in next_tool.name
+
+            # Check balancing
+            encode_count = sum(1 for i in chain if '_encoder' in mock_tools[i].name)
+            decode_count = sum(1 for i in chain if '_decoder' in mock_tools[i].name)
+            if len(chain) % 2 == 0:
+                assert encode_count == decode_count
+            else:
+                assert abs(encode_count - decode_count) <= 1
