@@ -7,6 +7,8 @@ import uuid
 from pallas.toolchain.ToolChainer import ToolChainer
 from pallas.toolchain.ToolDiscovery import ToolDiscovery
 from pallas.toolrun.ToolRunner import ToolRunner
+from pallas.toolchain.rules.rule_map import get_available_rules, get_rule_help, rules as rule_map
+from pallas.toolchain.rules.RuleEnforcer import RuleEnforcer
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -19,6 +21,8 @@ def parse_args() -> argparse.Namespace:
                        help='Balance encode/decode operations in chains')
     parser.add_argument('-s', '--strict-alternating', action='store_true',
                        help='Enforce strictly alternating encoder/decoder operations')
+    parser.add_argument('-t', '--rules', nargs='+', choices=get_available_rules(),
+                       help=f'Rules to apply to chains. Available rules:\n{get_rule_help()}')
 
     # Tool chain running options
     parser.add_argument('-r', '--run', type=str, help='Run tool chains from a provided toolchain output file')
@@ -41,13 +45,27 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
-def run_full_workflow(input_text: str, length: int, verbose: bool) -> None:
+def create_rule_enforcer(rule_names: Optional[list[str]] = None) -> RuleEnforcer:
+    """Create a RuleEnforcer with the specified rules.
+
+    Args:
+        rule_names: Optional list of rule names to include.
+
+    Returns:
+        RuleEnforcer instance configured with the specified rules.
+    """
+    if not rule_names:
+        return RuleEnforcer([])
+    return RuleEnforcer([rule_map[rule] for rule in rule_names])
+
+def run_full_workflow(input_text: str, length: int, verbose: bool, rules: list[str] = None) -> None:
     """Run the full workflow: generate chains and execute them.
 
     Args:
         input_text: The input text to process through the chains.
         length: Maximum length of tool chains to generate.
         verbose: Whether to enable verbose logging.
+        rules: List of rule names to apply.
     """
     # Generate a UUID for this run
     run_id = str(uuid.uuid4())
@@ -56,8 +74,11 @@ def run_full_workflow(input_text: str, length: int, verbose: bool) -> None:
     discovery = ToolDiscovery()
     tools = discovery.discover_tools()
 
+    # Create rule enforcer
+    rule_enforcer = create_rule_enforcer(rules)
+
     # Generate tool chains
-    chainer = ToolChainer(max_tree_size=length, verbose=verbose)
+    chainer = ToolChainer(max_tree_size=length, verbose=verbose, rule_enforcer=rule_enforcer)
     toolchains_dir = chainer.generate_chains(run_id=run_id)
 
     # Execute the chains
@@ -85,7 +106,7 @@ def main() -> None:
     args = parse_args()
 
     if args.all:
-        run_full_workflow(args.all, args.length, args.verbose)
+        run_full_workflow(args.all, args.length, args.verbose, args.rules)
     elif args.run:
         run_tool_chains(args.run, args.input, args.verbose)
     else:
@@ -93,9 +114,10 @@ def main() -> None:
         discovery = ToolDiscovery()
         tools = discovery.discover_tools()
 
-        chainer = ToolChainer(max_tree_size=args.length, verbose=args.verbose,
-                            balance_encodings=args.balance_encodings,
-                            strict_alternating=args.strict_alternating)
+        # Create rule enforcer
+        rule_enforcer = create_rule_enforcer(args.rules)
+
+        chainer = ToolChainer(max_tree_size=args.length, verbose=args.verbose, rule_enforcer=rule_enforcer)
         run_id = str(uuid.uuid4())
         chainer.generate_chains(run_id=run_id)
 

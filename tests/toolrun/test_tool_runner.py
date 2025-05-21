@@ -1,116 +1,157 @@
 import pytest
 from pathlib import Path
-from unittest.mock import mock_open, patch
-from pallas.tools.Tool import Tool, ToolError
+from unittest.mock import patch, MagicMock
 from pallas.toolrun.ToolRunner import ToolRunner
-import uuid
+from pallas.tools.Tool import Tool, ToolError
 
 class MockTool(Tool):
-    """Mock tool for testing."""
-    def __init__(self, name: str, output: str = None, error: ToolError = None):
-        super().__init__(name, "Test tool", set("abc"), set("xyz"))
-        self._output = output or "output"
-        self._error = error
+    def __init__(self, name: str, should_fail: bool = False):
+        super().__init__(
+            name=name,
+            description=f"Mock tool {name}",
+            domain_chars=set('abc'),
+            range_chars=set('def')
+        )
+        self.should_fail = should_fail
 
     def _process(self, input_str: str) -> str:
-        if self._error:
-            raise self._error
-        return self._output
+        if self.should_fail:
+            raise ToolError(self.name, "Mock error")
+        return f"{input_str}_processed_by_{self.name}"
 
 @pytest.fixture
 def mock_tools():
-    """Create a list of mock tools for testing."""
-    return [
-        MockTool("tool1", "output1"),
-        MockTool("tool2", "output2"),
-        MockTool("tool3", "output3"),
-        MockTool("error_tool", error=ToolError(tool_name="error_tool", message="Test error"))
-    ]
+    return {
+        'tool1': MockTool('tool1'),
+        'tool2': MockTool('tool2'),
+        'failing_tool': MockTool('failing_tool', should_fail=True)
+    }
 
 @pytest.fixture
 def toolchains_file(tmp_path):
-    """Create a temporary toolchains file."""
-    chains = [
-        "tool1 -> tool2 -> tool3",
-        "tool1 -> error_tool -> tool3",
-        "nonexistent -> tool2",
-        "# Comment line",
-        "",
-        "tool1 -> tool2"
-    ]
     file_path = tmp_path / "toolchains.txt"
-    with open(file_path, "w") as f:
-        f.write("\n".join(chains))
-    return file_path
+    content = """# This is a comment
+tool1 -> tool2
+tool1 -> failing_tool
+invalid_tool -> tool2
+"""
+    file_path.write_text(content)
+    return str(file_path)
 
 def test_tool_runner_initialization(toolchains_file):
-    """Test ToolRunner initialization."""
-    run_id = str(uuid.uuid4())
-    runner = ToolRunner(
-        toolchains_file=toolchains_file,
-        input_text="test input",
-        output_filename=f'toolrun_{run_id}.txt'
-    )
+    """Test ToolRunner initialization with default parameters."""
+    runner = ToolRunner(toolchains_file, "test_input")
     assert runner.toolchains_file == Path(toolchains_file)
-    assert runner.input_text == "test input"
+    assert runner.input_text == "test_input"
+    assert runner.tools_dir is None
+    assert runner.verbose is False
     assert runner.tools == {}
-    assert not runner.verbose
+    assert isinstance(runner.run_id, str)
+    assert runner.output_dir == Path('out')
+    assert runner.stats == {
+        'chains_processed': 0,
+        'chains_succeeded': 0,
+        'chains_failed': 0,
+        'tools_loaded': 0
+    }
 
-def test_tool_runner_verbose_initialization(toolchains_file):
-    """Test ToolRunner initialization with verbose mode."""
-    runner = ToolRunner(toolchains_file, "test input", verbose=True)
-    assert runner.verbose
-
-def test_load_tools(mock_tools):
-    """Test tool loading functionality."""
-    with patch("pallas.toolrun.ToolRunner.ToolDiscovery") as mock_discovery:
-        mock_discovery.return_value.discover_tools.return_value = mock_tools
-        runner = ToolRunner("dummy.txt", "test input")
-        runner._load_tools()
-        assert len(runner.tools) == 4
-        assert "tool1" in runner.tools
-        assert "error_tool" in runner.tools
-        assert runner.stats["tools_loaded"] == 4
-
-def test_execute_chain_success(mock_tools):
-    """Test successful chain execution."""
-    with patch("pallas.toolrun.ToolRunner.ToolDiscovery") as mock_discovery:
-        mock_discovery.return_value.discover_tools.return_value = mock_tools
-        runner = ToolRunner("dummy.txt", "test input")
-        runner._load_tools()
-        output, error = runner._execute_chain(["tool1", "tool2", "tool3"])
-        assert output == "output3"
-        assert error is None
-
-def test_execute_chain_tool_not_found(mock_tools):
-    """Test chain execution with non-existent tool."""
-    with patch("pallas.toolrun.ToolRunner.ToolDiscovery") as mock_discovery:
-        mock_discovery.return_value.discover_tools.return_value = mock_tools
-        runner = ToolRunner("dummy.txt", "test input")
-        runner._load_tools()
-        output, error = runner._execute_chain(["nonexistent", "tool2"])
-        assert output == ""
-        assert isinstance(error, ToolError)
-        assert "Tool not found" in str(error)
-
-def test_execute_chain_tool_error(mock_tools):
-    """Test chain execution with tool error."""
-    with patch("pallas.toolrun.ToolRunner.ToolDiscovery") as mock_discovery:
-        mock_discovery.return_value.discover_tools.return_value = mock_tools
-        runner = ToolRunner("dummy.txt", "test input")
-        runner._load_tools()
-        output, error = runner._execute_chain(["tool1", "error_tool", "tool3"])
-        assert output == ""
-        assert isinstance(error, ToolError)
-        assert "Test error" in str(error)
-
-def test_run_with_custom_tools_dir(tmp_path, mock_tools):
-    """Test running with custom tools directory."""
+def test_tool_runner_initialization_with_custom_params(toolchains_file, tmp_path):
+    """Test ToolRunner initialization with custom parameters."""
     tools_dir = tmp_path / "tools"
     tools_dir.mkdir()
+    runner = ToolRunner(
+        toolchains_file,
+        "test_input",
+        tools_dir=tools_dir,
+        verbose=True,
+        output_filename="custom_output.txt"
+    )
+    assert runner.tools_dir == tools_dir
+    assert runner.verbose is True
 
-    with patch("pallas.toolrun.ToolRunner.ToolDiscovery") as mock_discovery:
-        mock_discovery.return_value.discover_tools.return_value = mock_tools
-        runner = ToolRunner("dummy.txt", "test input", tools_dir=tools_dir)
-        runner._load_tools()
-        assert len(runner.tools) == 4
+def test_log_verbose(toolchains_file):
+    """Test logging in verbose mode."""
+    runner = ToolRunner(toolchains_file, "test_input", verbose=True)
+    with patch('builtins.print') as mock_print:
+        runner._log("Test message")
+        mock_print.assert_called_once_with("Test message")
+
+def test_log_non_verbose(toolchains_file):
+    """Test logging in non-verbose mode."""
+    runner = ToolRunner(toolchains_file, "test_input", verbose=False)
+    with patch('builtins.print') as mock_print:
+        runner._log("Test message")
+        mock_print.assert_not_called()
+
+@patch('pallas.toolrun.ToolRunner.ToolDiscovery')
+def test_load_tools(mock_discovery, toolchains_file, mock_tools):
+    """Test tool loading functionality."""
+    mock_discovery.return_value.discover_tools.return_value = list(mock_tools.values())
+    runner = ToolRunner(toolchains_file, "test_input", verbose=True)
+    runner._load_tools()
+    assert runner.tools == mock_tools
+    assert runner.stats['tools_loaded'] == len(mock_tools)
+
+def test_execute_chain_success(toolchains_file, mock_tools):
+    """Test successful chain execution."""
+    runner = ToolRunner(toolchains_file, "test_input")
+    runner.tools = mock_tools
+    output, error = runner._execute_chain(['tool1', 'tool2'])
+    assert error is None
+    assert output == "test_input_processed_by_tool1_processed_by_tool2"
+
+def test_execute_chain_tool_not_found(toolchains_file, mock_tools):
+    """Test chain execution with non-existent tool."""
+    runner = ToolRunner(toolchains_file, "test_input")
+    runner.tools = mock_tools
+    output, error = runner._execute_chain(['nonexistent_tool'])
+    assert isinstance(error, ToolError)
+    assert error.tool_name == "nonexistent_tool"
+    assert "Tool not found" in error.message
+    assert output == ""
+
+def test_execute_chain_tool_failure(toolchains_file, mock_tools):
+    """Test chain execution with failing tool."""
+    runner = ToolRunner(toolchains_file, "test_input")
+    runner.tools = mock_tools
+    output, error = runner._execute_chain(['failing_tool'])
+    assert isinstance(error, ToolError)
+    assert error.tool_name == "failing_tool"
+    assert "Mock error" in error.message
+    assert output == ""
+
+@patch('pallas.toolrun.ToolRunner.ToolDiscovery')
+def test_run_complete_execution(mock_discovery, toolchains_file, mock_tools, tmp_path):
+    """Test complete execution of all chains."""
+    mock_discovery.return_value.discover_tools.return_value = list(mock_tools.values())
+    runner = ToolRunner(toolchains_file, "test_input", verbose=True)
+
+    # Mock the output directory to be in tmp_path
+    runner.output_dir = tmp_path / "out"
+    runner.output_dir.mkdir()
+
+    runner.run()
+
+    # Verify output files were created
+    success_files = list(runner.output_dir.glob('toolrun_succeeded_*.txt'))
+    failed_files = list(runner.output_dir.glob('toolrun_failed_*.txt'))
+    assert len(success_files) == 1
+    assert len(failed_files) == 1
+
+    # Verify content of success file
+    success_content = success_files[0].read_text()
+    assert "tool1 -> tool2" in success_content
+    assert "test_input_processed_by_tool1_processed_by_tool2" in success_content
+
+    # Verify content of failed file
+    failed_content = failed_files[0].read_text()
+    assert "tool1 -> failing_tool" in failed_content
+    assert "Error" in failed_content
+    assert "invalid_tool -> tool2" in failed_content
+    assert "Tool not found" in failed_content
+
+    # Verify stats
+    assert runner.stats['chains_processed'] == 3
+    assert runner.stats['chains_succeeded'] == 1
+    assert runner.stats['chains_failed'] == 2
+    assert runner.stats['tools_loaded'] == len(mock_tools)
