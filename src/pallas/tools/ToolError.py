@@ -8,3 +8,6 @@ class ToolError(Exception):
         self.tool_name = tool_name
         self.message = message
         super().__init__(f"{tool_name}: {message}")
+
+    def __str__(self):
+        return f"{self.tool_name}: {self.message}"

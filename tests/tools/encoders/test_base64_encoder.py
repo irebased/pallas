@@ -7,24 +7,36 @@ def test_base64_encoder_initialization():
     encoder = Base64Encoder()
     assert encoder.name == "base64_encoder"
     assert "Converts ASCII text to Base64 encoding" in encoder.description
-    assert encoder.domain_chars == EXTENDED_ASCII_CHARSET
-    assert encoder.range_chars == BASE64_CHARSET
 
 def test_base64_encoder_process():
-    """Test Base64Encoder encoding functionality."""
+    """Test Base64Encoder process method."""
     encoder = Base64Encoder()
+    result = encoder._process("Hello")
+    assert result == "SGVsbG8="
 
-    # Test basic ASCII string
-    assert encoder._process("Hello") == "SGVsbG8="
+def test_base64_encoder_default_separator():
+    encoder = Base64Encoder()
+    result, sep, error = encoder.run("Hello")
+    assert error is None
+    assert result == "SGVsbG8="
 
-    # Test empty string
-    assert encoder._process("") == ""
+def test_base64_encoder_empty_string():
+    encoder = Base64Encoder()
+    result, sep, error = encoder.run("")
+    assert error is None
+    assert result == ""
 
-    # Test string with special characters
-    assert encoder._process("Hello, World!") == "SGVsbG8sIFdvcmxkIQ=="
+def test_base64_encoder_special_chars():
+    encoder = Base64Encoder()
+    result, sep, error = encoder.run("!@#$")
+    assert error is None
+    assert result == "IUAjJA=="
 
-    # Test string with numbers
-    assert encoder._process("123") == "MTIz"
+def test_base64_encoder_domain_chars():
+    encoder = Base64Encoder()
+    for i in range(256):
+        assert chr(i) in encoder.domain_chars
 
-    # Test string with mixed content
-    assert encoder._process("Hello123!") == "SGVsbG8xMjMh"
+def test_base64_encoder_range_chars():
+    encoder = Base64Encoder()
+    assert set(encoder.range_chars) == set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")

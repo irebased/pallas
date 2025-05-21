@@ -14,55 +14,62 @@ class Tool(ABC):
     Always implement the _process method in the concrete tool class.
     Always implement the Tool interface when creating new tools.
     """
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        domain_chars: Set[str],
-        range_chars: Set[str],
-        separator: Optional[str] = None
-    ):
-        self.name = name
-        self.description = description
-        self.domain_chars = domain_chars
-        self.range_chars = range_chars
-        self.separator = separator
+    name: str = "tool"
+    description: str = "A tool"
+    domain_chars: str = ""
+    range_chars: str = ""
+    separator: Optional[str] = None
 
-    def run(self, input_str: str, error: Optional[ToolError] = None) -> Tuple[str, Optional[ToolError]]:
-        """
-        Run the tool on the input string with error handling.
-
-        Args:
-            input_str: The input string to process
-            error: Optional error from previous tool in chain
-
-        Returns:
-            Tuple of (result, error) where error is None on success
-        """
-        if error is not None:
-            return (input_str, error)
-
-        if not input_str:
-            return ("", None)
-
-        try:
-            result = self._process(input_str)
-            return (result, None)
-        except Exception as e:
-            return (input_str, ToolError(self.name, str(e)))
+    def __init__(self, separator: Optional[str] = None):
+        """Initialize the tool with an optional custom separator."""
+        if separator is not None:
+            self.separator = separator
 
     @abstractmethod
-    def _process(self, input_str: str) -> str:
+    def _process(self, input_str: str, input_separator: Optional[str] = None) -> tuple[str, Optional[str]]:
         """
         Process the input string. This is the core logic that concrete tools should implement.
+        This method should not perform any input validation - that is handled by run().
 
         Args:
             input_str: The input string to process
+            input_separator: The separator to use for the input string
 
         Returns:
-            The processed output string
+            The processed output string and the separator to use for the output string
 
         Raises:
             Exception: If there is an error during processing
         """
         pass
+
+    def run(self, input_str: str, input_separator: Optional[str] = None, error: Optional[ToolError] = None) -> Tuple[str, Optional[str], Optional[ToolError]]:
+        """Run the tool on the input string.
+
+        Args:
+            input_str: The input string to process
+            input_separator: The separator to use for the input string
+            error: Optional error from a previous tool
+
+        Returns:
+            A tuple of (result, error) where result is the processed string and error is None if successful
+        """
+        if error is not None:
+            return input_str, self.separator, error
+
+        # Validate input characters
+        if input_str:
+            invalid_chars = set(input_str) - set(self.domain_chars)
+            if self.separator and self.separator in invalid_chars:
+                invalid_chars.remove(self.separator)
+            if input_separator and input_separator in invalid_chars:
+                invalid_chars.remove(input_separator)
+            if invalid_chars:
+                return input_str, self.separator, ToolError(self.name, f"Input contains invalid characters: {invalid_chars}")
+
+        try:
+            result = self._process(input_str, input_separator)
+
+            return result, self.separator, None
+        except Exception as e:
+            return input_str, self.separator, ToolError(self.name, str(e))

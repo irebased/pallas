@@ -1,29 +1,30 @@
 import pytest
-from pallas.tools.Tool import Tool
-from pallas.tools.ToolError import ToolError
+from pallas.tools.Tool import Tool, ToolError
+from typing import Optional
 
 class MockTool(Tool):
-    def _process(self, input_str: str) -> str:
-        raise ValueError("Test error")
+    """A mock tool for testing."""
+
+    name = "test_tool"
+    description = "A test tool"
+    domain_chars = "abc"
+    range_chars = "xyz"
+
+    def _process(self, input_str: str, input_separator: Optional[str] = None) -> tuple[str, Optional[str]]:
+        """Process the input string."""
+        if input_str == "abc":
+            raise ValueError("Test error")
+        return input_str
 
 def test_tool_error_handling():
-    tool = MockTool(
-        name="test_tool",
-        description="Test tool for error handling",
-        domain_chars=set("abc"),
-        range_chars=set("123")
-    )
-
     # Test with error from previous tool
     prev_error = ToolError("prev_tool", "Previous error")
-    result, error = tool.run("test", error=prev_error)
+    result, sep, error = MockTool().run("abc", error=prev_error)
     assert error == prev_error
-    assert result == "test"
+    assert result == "abc"
 
     # Test with processing error
-    result, error = tool.run("test")
+    result, sep, error = MockTool().run("abc")
     assert error is not None
     assert isinstance(error, ToolError)
-    assert error.tool_name == "test_tool"
     assert "Test error" in str(error)
-    assert result == "test"

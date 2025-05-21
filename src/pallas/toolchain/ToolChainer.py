@@ -2,7 +2,7 @@ import time
 from typing import List, Set, Optional
 from pallas.tools.Tool import Tool
 from pathlib import Path
-from pallas.toolchain.ToolDiscovery import ToolDiscovery
+from pallas.toolchain.ToolProvider import ToolProvider
 from pallas.toolchain.ChainContext import ChainContext
 from pallas.toolchain.rules.RuleEnforcer import RuleEnforcer
 from pallas.utils.tree_utils import calculate_max_tree_size
@@ -10,19 +10,19 @@ from pallas.utils.tree_utils import calculate_max_tree_size
 class ToolChainer:
     """Class responsible for generating valid tool chains."""
 
-    def __init__(self, tools_dir: Optional[Path] = None, max_tree_size: int = 3,
+    def __init__(self, tool_provider: ToolProvider, max_tree_size: int = 3,
                  output_filename: Optional[str] = None, verbose: bool = False,
                  rule_enforcer: Optional['RuleEnforcer'] = None):
         """Initialize the tool chainer.
 
         Args:
-            tools_dir: Path to the tools directory. If None, uses the default tools directory.
+            tool_provider: ToolDiscovery instance to use for loading tools.
             max_tree_size: Maximum number of tools in a chain.
             output_filename: Optional filename for the output file. If None, uses 'toolchain.txt'.
             verbose: Whether to enable verbose logging.
             rule_enforcer: Optional RuleEnforcer instance to use for chain validation.
         """
-        self.tools_dir = tools_dir
+        self.tool_provider = tool_provider
         self.max_tree_size = max_tree_size
         self.verbose = verbose
         self.tools: List[Tool] = []
@@ -116,8 +116,7 @@ class ToolChainer:
 
     def _load_tools(self) -> None:
         """Load all available tools."""
-        discovery = ToolDiscovery(tools_dir=self.tools_dir)
-        self.tools = discovery.discover_tools()
+        self.tools = self.tool_provider.discover_tools()
 
     def _log(self, message: str) -> None:
         """Print message only if verbose mode is enabled."""

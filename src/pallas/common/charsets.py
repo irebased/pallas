@@ -6,4 +6,5 @@ DECIMAL_CHARSET = set("0123456789")
 
 BASE64_CHARSET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=')
 
-HEX_CHARSET = set('0123456789abcdefABCDEF')
+# Hex charset is case-insensitive, so we only include lowercase
+HEX_CHARSET = set('0123456789abcdef')

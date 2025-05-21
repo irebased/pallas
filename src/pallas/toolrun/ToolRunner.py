@@ -3,25 +3,25 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from pallas.tools.Tool import Tool, ToolError
-from pallas.toolchain.ToolDiscovery import ToolDiscovery
+from pallas.toolchain.ToolProvider import ToolProvider
 
 class ToolRunner:
     """Class responsible for executing tool chains from a file."""
 
-    def __init__(self, toolchains_file: str, input_text: str, tools_dir: Optional[Path] = None,
+    def __init__(self, toolchains_file: str, input_text: str, tool_provider: ToolProvider,
                  verbose: bool = False, output_filename: Optional[str] = None):
         """Initialize the tool runner.
 
         Args:
             toolchains_file: Path to the file containing tool chains to execute.
             input_text: The input text to process through the tool chains.
-            tools_dir: Path to the tools directory. If None, uses the default tools directory.
+            tool_provider: ToolDiscovery instance to use for loading tools.
             verbose: Whether to enable verbose logging.
             output_filename: Optional filename for the output file. If None, uses 'toolrun.txt'.
         """
         self.toolchains_file = Path(toolchains_file)
         self.input_text = input_text
-        self.tools_dir = tools_dir
+        self.tool_provider = tool_provider
         self.verbose = verbose
         self.tools: Dict[str, Tool] = {}
         self.run_id = str(uuid.uuid4())
@@ -42,8 +42,7 @@ class ToolRunner:
     def _load_tools(self) -> None:
         """Load all available tools and create a name-to-tool mapping."""
         self._log("Loading tools...")
-        discovery = ToolDiscovery(tools_dir=self.tools_dir)
-        tools = discovery.discover_tools()
+        tools = self.tool_provider.discover_tools()
         self.tools = {tool.name: tool for tool in tools}
         self.stats['tools_loaded'] = len(self.tools)
         self._log(f"Loaded {len(self.tools)} tools: {', '.join(self.tools.keys())}")
@@ -61,18 +60,19 @@ class ToolRunner:
         self._log(f"Initial input: {self.input_text}")
 
         current_input = self.input_text
+        previous_separator = None
         for i, tool_name in enumerate(chain, 1):
             if tool_name not in self.tools:
-                error = ToolError(tool_name=tool_name, message=f"Tool not found: {tool_name}")
+                error = ToolError(tool_name, f"Tool not found: {tool_name}")
                 self._log(f"Error: {error}")
                 return "", error
 
             self._log(f"Step {i}/{len(chain)}: Running {tool_name}")
-            result, error = self.tools[tool_name].run(current_input)
+            result, previous_separator, error = self.tools[tool_name].run(current_input, previous_separator)
 
             if error:
                 self._log(f"Error in {tool_name}: {error}")
-                return "", error
+                return "", ToolError(tool_name, error.message)
 
             self._log(f"Output from {tool_name}: {result}")
             current_input = result

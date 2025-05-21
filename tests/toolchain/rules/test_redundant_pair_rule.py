@@ -6,13 +6,12 @@ from pallas.tools.Tool import Tool
 
 class MockTool(Tool):
     """Mock tool for testing."""
-    def __init__(self, name: str):
-        super().__init__(
-            name=name,
-            description=f"Mock tool {name}",
-            domain_chars=set('abc'),
-            range_chars=set('def')
-        )
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+        self.description = f"Mock tool {name}"
+        self.domain_chars = set('abc')
+        self.range_chars = set('def')
 
     def _process(self, input_str: str) -> str:
         return input_str

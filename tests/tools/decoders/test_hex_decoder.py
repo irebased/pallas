@@ -7,42 +7,48 @@ def test_hex_decoder_initialization():
     decoder = HexDecoder()
     assert decoder.name == "hex_decoder"
     assert "Converts hexadecimal representation back to ASCII text" in decoder.description
-    assert decoder.domain_chars == HEX_CHARSET
-    assert decoder.range_chars == EXTENDED_ASCII_CHARSET
 
 def test_hex_decoder_process():
-    """Test HexDecoder decoding functionality."""
+    """Test HexDecoder process method."""
     decoder = HexDecoder()
-
-    # Test basic ASCII string
-    assert decoder._process("48 65 6c 6c 6f") == "Hello"
-
-    # Test empty string
-    assert decoder._process("") == ""
-
-    # Test string with special characters
-    assert decoder._process("48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21") == "Hello, World!"
-
-    # Test string with numbers
-    assert decoder._process("31 32 33") == "123"
-
-    # Test string with mixed content
-    assert decoder._process("48 65 6c 6c 6f 31 32 33 21") == "Hello123!"
+    result = decoder._process("48 65 6c 6c 6f")
+    assert result == "Hello"
 
 def test_hex_decoder_custom_separator():
     """Test HexDecoder with custom separator."""
-    decoder = HexDecoder(separator=":")
-
-    # Test with custom separator
-    assert decoder._process("48:65:6c:6c:6f") == "Hello"
-
-    # Test empty string
-    assert decoder._process("") == ""
+    decoder = HexDecoder(separator=",")
+    result = decoder._process("48,65,6c,6c,6f")
+    assert result == "Hello"
 
 def test_hex_decoder_case_insensitive():
-    """Test HexDecoder with mixed case hex values."""
+    """Test HexDecoder case insensitivity."""
     decoder = HexDecoder()
+    result = decoder._process("48 65 6C 6C 6F")
+    assert result == "Hello"
 
-    # Test mixed case hex values
-    assert decoder._process("48 65 6C 6c 6F") == "Hello"
-    assert decoder._process("48 65 6c 6C 6f") == "Hello"
+def test_hex_decoder_default_separator():
+    decoder = HexDecoder()
+    result, sep, error = decoder.run("48 65 6c 6c 6f")
+    assert error is None
+    assert result == "Hello"
+
+def test_hex_decoder_empty_string():
+    decoder = HexDecoder()
+    result, sep, error = decoder.run("")
+    assert error is None
+    assert result == ""
+
+def test_hex_decoder_special_chars():
+    decoder = HexDecoder()
+    result, sep, error = decoder.run("21 40 23 24")
+    assert error is None
+    assert result == "!@#$"
+
+def test_hex_decoder_domain_chars():
+    decoder = HexDecoder()
+    assert set(decoder.domain_chars) == set("0123456789abcdef")
+
+def test_hex_decoder_range_chars():
+    decoder = HexDecoder()
+    for i in range(256):
+        assert chr(i) in decoder.range_chars

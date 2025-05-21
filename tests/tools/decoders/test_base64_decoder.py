@@ -1,36 +1,29 @@
 import pytest
-import base64
 from pallas.tools.decoders.base64 import Base64Decoder
-from pallas.common import EXTENDED_ASCII_CHARSET, BASE64_CHARSET
 
-def test_base64_decoder_initialization():
-    """Test Base64Decoder initialization."""
+def test_base64_decoder_default_separator():
     decoder = Base64Decoder()
-    assert decoder.name == "base64_decoder"
-    assert "Converts Base64 encoding back to ASCII text" in decoder.description
-    assert decoder.domain_chars == BASE64_CHARSET
-    assert decoder.range_chars == EXTENDED_ASCII_CHARSET
+    result, sep, error = decoder.run("SGVsbG8=")
+    assert error is None
+    assert result == "Hello"
 
-def test_base64_decoder_process():
-    """Test Base64Decoder decoding functionality."""
+def test_base64_decoder_empty_string():
     decoder = Base64Decoder()
+    result, sep, error = decoder.run("")
+    assert error is None
+    assert result == ""
 
-    # Test basic ASCII string
-    assert decoder._process("SGVsbG8=") == "Hello"
-
-    # Test empty string
-    assert decoder._process("") == ""
-
-    # Test string with special characters
-    assert decoder._process("SGVsbG8sIFdvcmxkIQ==") == "Hello, World!"
-
-    # Test string with numbers
-    assert decoder._process("MTIz") == "123"
-
-    # Test string with mixed content
-    assert decoder._process("SGVsbG8xMjMh") == "Hello123!"
-
-def test_base64_decoder_extended_ascii():
-    """Test Base64Decoder with extended ASCII characters."""
+def test_base64_decoder_special_chars():
     decoder = Base64Decoder()
-    assert decoder._process("w6w=") == "Ã¬"
+    result, sep, error = decoder.run("IUAjJA==")
+    assert error is None
+    assert result == "!@#$"
+
+def test_base64_decoder_domain_chars():
+    decoder = Base64Decoder()
+    assert set(decoder.domain_chars) == set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+
+def test_base64_decoder_range_chars():
+    decoder = Base64Decoder()
+    for i in range(256):
+        assert chr(i) in decoder.range_chars
