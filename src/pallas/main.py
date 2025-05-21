@@ -21,8 +21,8 @@ def parse_args() -> argparse.Namespace:
                        help='Balance encode/decode operations in chains')
     parser.add_argument('-s', '--strict-alternating', action='store_true',
                        help='Enforce strictly alternating encoder/decoder operations')
-    parser.add_argument('-t', '--rules', nargs='+', choices=get_available_rules(),
-                       help=f'Rules to apply to chains. Available rules:\n{get_rule_help()}')
+    parser.add_argument('--rules', nargs='+', choices=get_available_rules(),
+                       help=f'Rules to apply to chains. Available rules:\n{get_rule_help()}\n')
 
     # Tool chain running options
     parser.add_argument('-r', '--run', type=str, help='Run tool chains from a provided toolchain output file')

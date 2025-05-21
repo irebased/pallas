@@ -13,10 +13,10 @@ rules = {
 
 # Help text for each rule
 rule_help = {
-    'alternating': "Enforce alternating encoder/decoder operations",
-    'balancing': "Ensure balanced numbers of encoders and decoders",
-    'charset': "Ensure compatible character sets between adjacent tools",
-    'redundant': "Prevent redundant encode-decode operations",
+    'alternating': "Enforce alternating encoder/decoder operations.",
+    'balancing': "Ensure balanced numbers of encoders and decoders.",
+    'charset': "Ensure compatible character sets between adjacent tools.",
+    'redundant': "Prevent redundant encode-decode operations.",
 }
 
 def get_available_rules() -> list[str]:
