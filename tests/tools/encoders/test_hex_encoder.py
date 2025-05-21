@@ -22,19 +22,19 @@ def test_hex_encoder_custom_separator():
 
 def test_hex_encoder_default_separator():
     encoder = HexEncoder()
-    result, error = encoder.run("Hello")
+    result, sep, error = encoder.run("Hello")
     assert error is None
     assert result == "48 65 6c 6c 6f"
 
 def test_hex_encoder_empty_string():
     encoder = HexEncoder()
-    result, error = encoder.run("")
+    result, sep, error = encoder.run("")
     assert error is None
     assert result == ""
 
 def test_hex_encoder_special_chars():
     encoder = HexEncoder()
-    result, error = encoder.run("!@#$")
+    result, sep, error = encoder.run("!@#$")
     assert error is None
     assert result == "21 40 23 24"
 

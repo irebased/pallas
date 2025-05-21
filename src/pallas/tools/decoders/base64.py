@@ -21,6 +21,6 @@ class Base64Decoder(Tool):
             # if the base64 has invalid padding, add the necessary amount of padding before processing (===)
             if len(input_str) % 4 != 0:
                 input_str += '=' * (4 - len(input_str) % 4)
-            return base64.b64decode(input_str.encode()).decode('latin1'), None
+            return base64.b64decode(input_str.encode()).decode('latin1')
         except Exception as e:
             raise ValueError(f"Invalid Base64 input: {str(e)}")

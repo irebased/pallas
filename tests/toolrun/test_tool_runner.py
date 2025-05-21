@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 from pallas.toolrun.ToolRunner import ToolRunner
 from pallas.tools.Tool import Tool, ToolError
 from pallas.toolchain.ToolProvider import ToolProvider
+from typing import Optional
 
 class MockTool(Tool):
     def __init__(self, name, should_fail=False):
@@ -15,7 +16,7 @@ class MockTool(Tool):
         self.range_chars = set('abcdefghijklmnopqrstuvwxyz_') | set('0123456789')
         self.should_fail = should_fail
 
-    def _process(self, input_str: str) -> str:
+    def _process(self, input_str: str, input_separator: Optional[str] = None) -> tuple[str, Optional[str]]:
         if self.should_fail:
             raise ValueError("Mock error")
         return f"{input_str}_processed_by_{self.name}"
