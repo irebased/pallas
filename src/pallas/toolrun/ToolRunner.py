@@ -47,6 +47,11 @@ class ToolRunner:
         self.stats['tools_loaded'] = len(self.tools)
         self._log(f"Loaded {len(self.tools)} tools: {', '.join(self.tools.keys())}")
 
+    def print_chain(self, chain):
+        if len(chain) < 2:
+            return " = ".join(chain)
+        return " -> ".join(chain[:-1] + [" = ".join(chain[-1:])])
+
     def _execute_chain(self, chain: List[str]) -> Tuple[str, Optional[ToolError]]:
         """Execute a single tool chain.
 
@@ -108,7 +113,7 @@ class ToolRunner:
                     # Execute the chain
                     try:
                         output, error = self._execute_chain(chain)
-                        chain_str = ' -> '.join(chain)
+                        chain_str = self.print_chain(chain)
                         if error:
                             failed_f.write(f"{chain_str} = Error: {error}\n")
                             self.stats['chains_failed'] += 1
