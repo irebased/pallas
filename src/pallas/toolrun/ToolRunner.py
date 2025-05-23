@@ -1,9 +1,11 @@
 import os
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from pallas.tools.Tool import Tool, ToolError
 from pallas.toolchain.ToolProvider import ToolProvider
+from pallas.utils.logging_helpers import LoggingHelper
+from pallas.utils.chain_utils import format_chain
 
 class ToolRunner:
     """Class responsible for executing tool chains from a file."""
@@ -15,7 +17,7 @@ class ToolRunner:
         Args:
             toolchains_file: Path to the file containing tool chains to execute.
             input_text: The input text to process through the tool chains.
-            tool_provider: ToolDiscovery instance to use for loading tools.
+            tool_provider: ToolProvider instance to use for loading tools.
             verbose: Whether to enable verbose logging.
             output_filename: Optional filename for the output file. If None, uses 'toolrun.txt'.
         """
@@ -33,24 +35,15 @@ class ToolRunner:
             'chains_failed': 0,
             'tools_loaded': 0
         }
-
-    def _log(self, message: str) -> None:
-        """Print message only if verbose mode is enabled."""
-        if self.verbose:
-            print(message)
+        self.logger = LoggingHelper(__name__, verbose, self.run_id)
 
     def _load_tools(self) -> None:
         """Load all available tools and create a name-to-tool mapping."""
-        self._log("Loading tools...")
+        self.logger.log("Loading tools...")
         tools = self.tool_provider.discover_tools()
         self.tools = {tool.name: tool for tool in tools}
         self.stats['tools_loaded'] = len(self.tools)
-        self._log(f"Loaded {len(self.tools)} tools: {', '.join(self.tools.keys())}")
-
-    def print_chain(self, chain):
-        if len(chain) < 2:
-            return " = ".join(chain)
-        return " -> ".join(chain[:-1] + [" = ".join(chain[-1:])])
+        self.logger.log(f"Loaded {len(self.tools)} tools: {', '.join(self.tools.keys())}")
 
     def _execute_chain(self, chain: List[str]) -> Tuple[str, Optional[ToolError]]:
         """Execute a single tool chain.
@@ -61,28 +54,38 @@ class ToolRunner:
         Returns:
             Tuple[str, Optional[ToolError]]: The final output and any error that occurred.
         """
-        self._log(f"\nExecuting chain: {' -> '.join(chain)}")
-        self._log(f"Initial input: {self.input_text}")
+        self.logger.log(f"\nExecuting chain: {' -> '.join(chain)}")
+        self.logger.log(f"Initial input: {self.input_text}")
 
         current_input = self.input_text
-        previous_separator = None
         for i, tool_name in enumerate(chain, 1):
             if tool_name not in self.tools:
                 error = ToolError(tool_name, f"Tool not found: {tool_name}")
-                self._log(f"Error: {error}")
+                self.logger.log_error(f"Error: {error}")
                 return "", error
 
-            self._log(f"Step {i}/{len(chain)}: Running {tool_name}")
-            result, previous_separator, error = self.tools[tool_name].run(current_input, previous_separator)
+            self.logger.log(f"Step {i}/{len(chain)}: Running {tool_name}")
+            result = self.tools[tool_name].run(current_input)
+
+            # Handle different return types from tool.run()
+            if isinstance(result, tuple):
+                if len(result) == 2:
+                    result, error = result
+                else:
+                    error = ToolError(tool_name, f"Tool returned unexpected number of values: {len(result)}")
+                    self.logger.log_error(f"Error: {error}")
+                    return "", error
+            else:
+                result, error = result, None
 
             if error:
-                self._log(f"Error in {tool_name}: {error}")
+                self.logger.log_error(f"Error in {tool_name}: {error}")
                 return "", ToolError(tool_name, error.message)
 
-            self._log(f"Output from {tool_name}: {result}")
+            self.logger.log(f"Output from {tool_name}: {result}")
             current_input = result
 
-        self._log(f"Chain completed successfully. Final output: {current_input}")
+        self.logger.log(f"Chain completed successfully. Final output: {current_input}")
         return current_input, None
 
     def run(self) -> None:
@@ -91,13 +94,13 @@ class ToolRunner:
         self._load_tools()
 
         # Second pass: execute chains and write to separate output files
-        self._log(f"\nExecuting chains from {self.toolchains_file}")
+        self.logger.log(f"\nExecuting chains from {self.toolchains_file}")
 
         success_file = self.output_dir / f'toolrun_succeeded_{self.run_id}.txt'
         failed_file = self.output_dir / f'toolrun_failed_{self.run_id}.txt'
 
-        self._log(f"Successful chains will be written to {success_file}")
-        self._log(f"Failed chains will be written to {failed_file}")
+        self.logger.log(f"Successful chains will be written to {success_file}")
+        self.logger.log(f"Failed chains will be written to {failed_file}")
 
         with open(success_file, 'w') as success_f, open(failed_file, 'w') as failed_f:
             with open(self.toolchains_file) as f:
@@ -108,12 +111,12 @@ class ToolRunner:
 
                     # Parse the chain
                     chain = [tool.strip() for tool in line.split('->')]
+                    chain_str = format_chain(chain)
                     self.stats['chains_processed'] += 1
 
                     # Execute the chain
                     try:
                         output, error = self._execute_chain(chain)
-                        chain_str = self.print_chain(chain)
                         if error:
                             failed_f.write(f"{chain_str} = Error: {error}\n")
                             self.stats['chains_failed'] += 1
@@ -126,8 +129,8 @@ class ToolRunner:
                         continue
 
         if self.verbose:
-            self._log("\nToolRunnerExecution Statistics:")
-            self._log(f"Tools loaded: {self.stats['tools_loaded']}")
-            self._log(f"Chains processed: {self.stats['chains_processed']}")
-            self._log(f"Chains succeeded: {self.stats['chains_succeeded']}")
-            self._log(f"Chains failed: {self.stats['chains_failed']}")
+            self.logger.log("\nToolRunnerExecution Statistics:")
+            self.logger.log(f"Tools loaded: {self.stats['tools_loaded']}")
+            self.logger.log(f"Chains processed: {self.stats['chains_processed']}")
+            self.logger.log(f"Chains succeeded: {self.stats['chains_succeeded']}")
+            self.logger.log(f"Chains failed: {self.stats['chains_failed']}")

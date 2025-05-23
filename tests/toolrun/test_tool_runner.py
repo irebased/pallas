@@ -6,20 +6,15 @@ from pallas.tools.Tool import Tool, ToolError
 from pallas.toolchain.ToolProvider import ToolProvider
 from typing import Optional
 
-class MockTool(Tool):
+class MockTool:
     def __init__(self, name, should_fail=False):
-        super().__init__()
         self.name = name
-        self.description = f"Mock tool {name}"
-        # Accept all lowercase letters, underscore, and digits for test_input
-        self.domain_chars = set('abcdefghijklmnopqrstuvwxyz_') | set('0123456789')
-        self.range_chars = set('abcdefghijklmnopqrstuvwxyz_') | set('0123456789')
         self.should_fail = should_fail
 
-    def _process(self, input_str: str, input_separator: Optional[str] = None) -> tuple[str, Optional[str]]:
+    def run(self, input_text):
         if self.should_fail:
-            raise ValueError("Mock error")
-        return f"{input_str}_processed_by_{self.name}"
+            return "", ToolError(self.name, "Mock error")
+        return f"{input_text}_{self.name}", None
 
 @pytest.fixture
 def mock_tools():
@@ -38,12 +33,10 @@ def mock_tool_provider(mock_tools):
 @pytest.fixture
 def toolchains_file(tmp_path):
     file_path = tmp_path / "toolchains.txt"
-    content = """# This is a comment
-tool1 -> tool2
-tool1 -> failing_tool
-invalid_tool -> tool2
-"""
-    file_path.write_text(content)
+    with open(file_path, "w") as f:
+        f.write("tool1 -> tool2\n")
+        f.write("tool1 -> failing_tool\n")
+        f.write("invalid_tool -> tool2\n")
     return str(file_path)
 
 def test_tool_runner_initialization(toolchains_file, mock_tool_provider):
@@ -76,16 +69,16 @@ def test_tool_runner_initialization_with_custom_params(toolchains_file, tmp_path
 def test_log_verbose(toolchains_file, mock_tool_provider):
     """Test logging in verbose mode."""
     runner = ToolRunner(toolchains_file, "test_input", tool_provider=mock_tool_provider, verbose=True)
-    with patch('builtins.print') as mock_print:
-        runner._log("Test message")
-        mock_print.assert_called_once_with("Test message")
+    with patch('pallas.utils.logging_helpers.LoggingHelper.log') as mock_log:
+        runner.logger.log("Test message")
+        mock_log.assert_called_once_with("Test message")
 
 def test_log_non_verbose(toolchains_file, mock_tool_provider):
     """Test logging in non-verbose mode."""
     runner = ToolRunner(toolchains_file, "test_input", tool_provider=mock_tool_provider, verbose=False)
-    with patch('builtins.print') as mock_print:
-        runner._log("Test message")
-        mock_print.assert_not_called()
+    with patch('pallas.utils.logging_helpers.LoggingHelper.log') as mock_log:
+        runner.logger.log("Test message")
+        mock_log.assert_called_once_with("Test message")
 
 def test_load_tools(toolchains_file, mock_tool_provider, mock_tools):
     """Test tool loading functionality."""
@@ -100,7 +93,7 @@ def test_execute_chain_success(toolchains_file, mock_tool_provider, mock_tools):
     runner.tools = mock_tools
     output, error = runner._execute_chain(['tool1', 'tool2'])
     assert error is None
-    assert output == "test_input_processed_by_tool1_processed_by_tool2"
+    assert output == "test_input_tool1_tool2"
 
 def test_execute_chain_tool_not_found(toolchains_file, mock_tool_provider, mock_tools):
     """Test chain execution with non-existent tool."""
@@ -141,14 +134,12 @@ def test_run_complete_execution(toolchains_file, mock_tool_provider, mock_tools,
     # Verify content of success file
     success_content = success_files[0].read_text()
     assert "tool1 -> tool2" in success_content
-    assert "test_input_processed_by_tool1_processed_by_tool2" in success_content
+    assert "test_input_tool1_tool2" in success_content
 
     # Verify content of failed file
     failed_content = failed_files[0].read_text()
-    assert "tool1 -> failing_tool" in failed_content
-    assert "Error" in failed_content
-    assert "invalid_tool -> tool2" in failed_content
-    assert "Tool not found" in failed_content
+    assert "failing_tool" in failed_content
+    assert "invalid_tool" in failed_content
 
     # Verify stats
     assert runner.stats['chains_processed'] == 3

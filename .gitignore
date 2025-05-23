@@ -42,5 +42,8 @@ htmlcov/
 dist/
 build/
 
+# logs
+/logs/
+
 # Misc
 .DS_Store

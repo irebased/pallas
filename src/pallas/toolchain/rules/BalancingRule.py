@@ -36,15 +36,11 @@ class BalancingRule(ChainRule):
 
         if total_length % 2 == 0:
             if encode_count != decode_count:
-                return ChainRuleException(
-                    f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders",
-                    "Even-length chains must have equal numbers of encoders and decoders"
-                )
+                return ChainRuleException(chain_context=chain_context, message=f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders. \
+Even-length chains must have equal numbers of encoders and decoders")
         else:
             if diff > 1:
-                return ChainRuleException(
-                    f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders",
-                    "Odd-length chains must have at most 1 more encoder than decoder or vice versa"
-                )
+                return ChainRuleException(chain_context=chain_context, message=f"Unbalanced chain: {encode_count} encoders, {decode_count} decoders. \
+Odd-length chains must have at most 1 more encoder than decoder or vice versa")
 
         return None

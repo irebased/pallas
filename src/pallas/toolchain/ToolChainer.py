@@ -6,6 +6,7 @@ from pallas.toolchain.ToolProvider import ToolProvider
 from pallas.toolchain.ChainContext import ChainContext
 from pallas.toolchain.rules.RuleEnforcer import RuleEnforcer
 from pallas.utils.tree_utils import calculate_max_tree_size
+from pallas.utils.logging_config import get_logger
 
 class ToolChainer:
     """Class responsible for generating valid tool chains."""
@@ -16,7 +17,7 @@ class ToolChainer:
         """Initialize the tool chainer.
 
         Args:
-            tool_provider: ToolDiscovery instance to use for loading tools.
+            tool_provider: ToolProvider instance to use for loading tools.
             max_tree_size: Maximum number of tools in a chain.
             output_filename: Optional filename for the output file. If None, uses 'toolchain.txt'.
             verbose: Whether to enable verbose logging.
@@ -33,6 +34,17 @@ class ToolChainer:
         self.pruned_chains: List[List[Tool]] = []
         self.phase_times = {}
         self.rule_enforcer = rule_enforcer or RuleEnforcer([])
+        self.logger = get_logger(__name__, verbose)
+
+    def _log(self, message: str, level: str = 'info') -> None:
+        """Log a message with the specified level.
+
+        Args:
+            message: The message to log
+            level: The logging level ('debug', 'info', 'warning', 'error', 'critical')
+        """
+        log_func = getattr(self.logger, level.lower())
+        log_func(message)
 
     def generate_chains(self, run_id: Optional[str] = None) -> Path:
         """Generate all valid tool chains and write them to a file.
@@ -44,6 +56,7 @@ class ToolChainer:
             Path: The output directory path.
         """
         # Reset state
+        self.logger.run_id = run_id
         self.valid_chains = []
         self.visited_nodes = 0
 
@@ -109,7 +122,7 @@ class ToolChainer:
 
         if error := self.rule_enforcer.validate_chain_against_rules(context):
             if self.verbose:
-                self._log(f"Rule violation: {error.message}")
+                self._log(f"Rule violation: {error.message}", 'warning')
             return False
 
         return True
@@ -117,8 +130,3 @@ class ToolChainer:
     def _load_tools(self) -> None:
         """Load all available tools."""
         self.tools = self.tool_provider.discover_tools()
-
-    def _log(self, message: str) -> None:
-        """Print message only if verbose mode is enabled."""
-        if self.verbose:
-            print(message)

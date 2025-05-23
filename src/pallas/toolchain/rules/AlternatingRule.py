@@ -34,16 +34,12 @@ class AlternatingRule(ChainRule):
 
         # If current tool is an encoder, next must be a decoder
         if current_is_encoder and next_is_encoder:
-            return ChainRuleException(
-                f"Non-alternating chain: {current_tool.name} -> {next_tool.name}",
-                "Encoder must be followed by decoder"
-            )
+            return ChainRuleException(chain_context=chain_context, message=f"Non-alternating chain: {current_tool.name} -> {next_tool.name}. \
+Encoder must be followed by decoder")
 
         # If current tool is a decoder, next must be an encoder
         if current_is_decoder and next_is_decoder:
-            return ChainRuleException(
-                f"Non-alternating chain: {current_tool.name} -> {next_tool.name}",
-                "Decoder must be followed by encoder"
-            )
+            return ChainRuleException(chain_context=chain_context, message=f"Non-alternating chain: {current_tool.name} -> {next_tool.name}. \
+Decoder must be followed by encoder")
 
         return None

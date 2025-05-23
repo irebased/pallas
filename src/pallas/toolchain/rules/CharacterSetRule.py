@@ -38,9 +38,7 @@ class CharacterSetRule(ChainRule):
                    range_chars == domain_chars)
 
         if not is_valid:
-            return ChainRuleException(
-                f"Character set mismatch: {current_tool.name} -> {next_tool.name}",
-                f"Range chars ({sorted(range_chars)}) incompatible with domain chars ({sorted(domain_chars)})"
-            )
+            return ChainRuleException(chain_context=chain_context, message=f"Character set mismatch: {current_tool.name} -> {next_tool.name}. \
+Range chars ({sorted(range_chars)}) incompatible with domain chars ({sorted(domain_chars)})")
 
         return None

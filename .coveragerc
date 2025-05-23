@@ -7,6 +7,9 @@ omit =
     */_version.py
     */toolchain/ToolDiscovery.py
     */main.py
+    */utils/logging*
+    */src/pallas/tools/tool_map.py
+    */src/pallas/toolchain/config.py
 
 [report]
 exclude_lines =

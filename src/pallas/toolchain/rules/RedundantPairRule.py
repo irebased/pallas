@@ -48,8 +48,6 @@ class RedundantPairRule(ChainRule):
             op1 = get_operation(t1.name)
             op2 = get_operation(t2.name)
             if base1 == base2 and op1 != op2 and op1 != 'unknown' and op2 != 'unknown':
-                return ChainRuleException(
-                    f"Redundant encode-decode pair: {t1.name} -> {t2.name}",
-                    f"Operation {op1} followed by {op2} would cancel out"
-                )
+                return ChainRuleException(chain_context=chain_context, message=f"Redundant encode-decode pair: {t1.name} -> {t2.name}. \
+Operation {op1} followed by {op2} would cancel out")
         return None
