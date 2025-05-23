@@ -20,34 +20,27 @@ class RedundantPairRule(ChainRule):
         Returns:
             ChainRuleException if the chain contains a redundant pair, None otherwise.
         """
-        # Helper functions
-        def get_base_name(name: str) -> str:
-            if name.endswith('_encoder'):
-                return name[:-8]
-            if name.endswith('_decoder'):
-                return name[:-8]
-            return name
 
-        def get_operation(name: str) -> str:
-            if name.endswith('_encoder'):
-                return 'encode'
-            if name.endswith('_decoder'):
-                return 'decode'
-            return 'unknown'
+        if not chain_context.current_chain or chain_context.current_chain == []:
+            return None
 
-        # Build the full chain including the next tool
-        full_chain = chain_context.current_chain + [chain_context.next_tool]
-        tools = chain_context.tools
+        invalid_pairs = {
+            'base64_encoder': 'base64_decoder',
+            'base64_decoder': 'base64_encoder',
+            'hex_encoder': 'hex_decoder',
+            'hex_decoder': 'hex_encoder',
+            'decimal_encoder': 'decimal_decoder',
+            'reverse': 'reverse',
+        }
 
-        # Check all adjacent pairs
-        for i in range(len(full_chain) - 1):
-            t1 = tools[full_chain[i]]
-            t2 = tools[full_chain[i+1]]
-            base1 = get_base_name(t1.name)
-            base2 = get_base_name(t2.name)
-            op1 = get_operation(t1.name)
-            op2 = get_operation(t2.name)
-            if base1 == base2 and op1 != op2 and op1 != 'unknown' and op2 != 'unknown':
-                return ChainRuleException(chain_context=chain_context, message=f"Redundant encode-decode pair: {t1.name} -> {t2.name}. \
-Operation {op1} followed by {op2} would cancel out")
+        last_chain_tool = chain_context.tools[chain_context.current_chain[-1]].name
+        next_chain_tool = chain_context.tools[chain_context.next_tool].name
+
+        if not last_chain_tool in invalid_pairs or not next_chain_tool in invalid_pairs:
+            return None
+
+        if invalid_pairs[last_chain_tool] == next_chain_tool:
+            return ChainRuleException(chain_context=chain_context, message=f"Redundant pair: {last_chain_tool} -> {next_chain_tool}. \
+Operation {last_chain_tool} followed by {next_chain_tool} would cancel out")
+
         return None
