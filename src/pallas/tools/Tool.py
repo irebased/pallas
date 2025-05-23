@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Set, Optional, Tuple
 from pallas.tools.ToolError import ToolError
+from pallas.features.aggressive_spacing import AGGRESSIVE_SPACING
 
 class Tool(ABC):
     """
@@ -63,6 +64,10 @@ class Tool(ABC):
         # Validate input characters
         if input_str:
             invalid_chars = set(input_str) - set(self.domain_chars)
+
+            if AGGRESSIVE_SPACING:
+                invalid_chars = invalid_chars - set(' ')
+
             if self.separator and self.separator in invalid_chars:
                 invalid_chars.remove(self.separator)
             if input_separator and input_separator in invalid_chars:

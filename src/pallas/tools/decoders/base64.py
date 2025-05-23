@@ -1,5 +1,6 @@
 from pallas.tools.Tool import Tool
 from pallas.common import EXTENDED_ASCII_CHARSET, BASE64_CHARSET
+from pallas.features.aggressive_spacing import AGGRESSIVE_SPACING
 import base64
 from typing import Optional
 
@@ -18,7 +19,9 @@ class Base64Decoder(Tool):
             if input_separator:
                 input_str = input_str.strip().replace(input_separator, '')
 
-            # if the base64 has invalid padding, add the necessary amount of padding before processing (===)
+            if AGGRESSIVE_SPACING:
+                input_str = input_str.strip().replace(' ', '')
+
             if len(input_str) % 4 != 0:
                 input_str += '=' * (4 - len(input_str) % 4)
             return base64.b64decode(input_str.encode()).decode('latin1')
