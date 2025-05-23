@@ -11,10 +11,10 @@ class MockTool:
         self.name = name
         self.should_fail = should_fail
 
-    def run(self, input_text):
+    def run(self, input_text, input_separator: Optional[str] = None):
         if self.should_fail:
-            return "", ToolError(self.name, "Mock error")
-        return f"{input_text}_{self.name}", None
+            return "", input_separator, ToolError(self.name, "Mock error")
+        return f"{input_text}_{self.name}", input_separator, None
 
 @pytest.fixture
 def mock_tools():

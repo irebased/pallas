@@ -65,18 +65,7 @@ class ToolRunner:
                 return "", error
 
             self.logger.log(f"Step {i}/{len(chain)}: Running {tool_name}")
-            result = self.tools[tool_name].run(current_input)
-
-            # Handle different return types from tool.run()
-            if isinstance(result, tuple):
-                if len(result) == 2:
-                    result, error = result
-                else:
-                    error = ToolError(tool_name, f"Tool returned unexpected number of values: {len(result)}")
-                    self.logger.log_error(f"Error: {error}")
-                    return "", error
-            else:
-                result, error = result, None
+            result, sep, error = self.tools[tool_name].run(current_input)
 
             if error:
                 self.logger.log_error(f"Error in {tool_name}: {error}")

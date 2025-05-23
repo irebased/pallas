@@ -57,6 +57,9 @@ class Tool(ABC):
         if error is not None:
             return input_str, self.separator, error
 
+        if input_separator is not None:
+            self.separator = input_separator
+
         # Validate input characters
         if input_str:
             invalid_chars = set(input_str) - set(self.domain_chars)
