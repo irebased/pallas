@@ -31,6 +31,8 @@ class RedundantPairRule(ChainRule):
             'hex_decoder': 'hex_encoder',
             'decimal_encoder': 'decimal_decoder',
             'decimal_decoder': 'decimal_encoder',
+            'octal_encoder': 'octal_decoder',
+            'octal_decoder': 'octal_encoder',
             'reverse': 'reverse',
         }
 
