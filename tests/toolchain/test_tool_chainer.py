@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from pallas.toolchain.ToolChainer import ToolChainer
 from pallas.toolchain.rules.RuleEnforcer import RuleEnforcer
 from pallas.toolchain.rules.AlternatingRule import AlternatingRule
-from pallas.toolchain.rules.BalancingRule import BalancingRule
+from pallas.toolchain.rules.BalancingEncoderDecoderRule import BalancingEncoderDecoderRule
 from pallas.toolchain.rules.RedundantPairRule import RedundantPairRule
 from pallas.toolchain.rules.CharacterSetRule import CharacterSetRule
 from pallas.tools.Tool import Tool
@@ -63,7 +63,7 @@ def test_generate_chains_with_rules(mock_tool_provider):
         assert len(content.strip().split('\n')) > 0
 
 def test_generate_chains_with_alternating_and_balancing(mock_tool_provider):
-    enforcer = RuleEnforcer([AlternatingRule, BalancingRule, RedundantPairRule, CharacterSetRule])
+    enforcer = RuleEnforcer([AlternatingRule, BalancingEncoderDecoderRule, RedundantPairRule, CharacterSetRule])
     chainer = ToolChainer(tool_provider=mock_tool_provider, max_tree_size=4, rule_enforcer=enforcer, verbose=True)
     output_dir = chainer.generate_chains()
     assert output_dir.exists()

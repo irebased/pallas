@@ -1,12 +1,12 @@
 from pallas.toolchain.rules.AlternatingRule import AlternatingRule
-from pallas.toolchain.rules.BalancingRule import BalancingRule
+from pallas.toolchain.rules.BalancingEncoderDecoderRule import BalancingEncoderDecoderRule
 from pallas.toolchain.rules.CharacterSetRule import CharacterSetRule
 from pallas.toolchain.rules.RedundantPairRule import RedundantPairRule
 
 # Map of rule names to their classes
 rules = {
     'alternating': AlternatingRule,
-    'balancing': BalancingRule,
+    'balancing': BalancingEncoderDecoderRule,
     'charset': CharacterSetRule,
     'redundant': RedundantPairRule,
 }

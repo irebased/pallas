@@ -1,5 +1,5 @@
 import pytest
-from pallas.toolchain.rules.BalancingRule import BalancingRule
+from pallas.toolchain.rules.BalancingEncoderDecoderRule import BalancingEncoderDecoderRule
 from pallas.toolchain.ChainContext import ChainContext
 from pallas.toolchain.rules.ChainRuleException import ChainRuleException
 from pallas.tools.Tool import Tool
@@ -44,7 +44,7 @@ def test_empty_chain_is_valid(mock_tools):
         target_length=3,
         tools=mock_tools
     )
-    assert BalancingRule.validate(context) is None
+    assert BalancingEncoderDecoderRule.validate(context) is None
 
 def test_even_length_chain_with_equal_counts_is_valid(mock_tools):
     """Test that an even-length chain with equal encoder/decoder counts is valid."""
@@ -54,7 +54,7 @@ def test_even_length_chain_with_equal_counts_is_valid(mock_tools):
         target_length=3,
         tools=mock_tools
     )
-    assert BalancingRule.validate(context) is None
+    assert BalancingEncoderDecoderRule.validate(context) is None
 
 def test_even_length_chain_with_unequal_counts_is_invalid(mock_tools):
     """Test that an even-length chain with unequal encoder/decoder counts is invalid."""
@@ -64,7 +64,7 @@ def test_even_length_chain_with_unequal_counts_is_invalid(mock_tools):
         target_length=3,
         tools=mock_tools
     )
-    error = BalancingRule.validate(context)
+    error = BalancingEncoderDecoderRule.validate(context)
     assert isinstance(error, ChainRuleException)
     assert "Odd-length chains must have at most 1 more encoder than decoder or vice versa" in error.message
 
@@ -76,7 +76,7 @@ def test_odd_length_chain_with_diff_one_is_valid(mock_tools):
         target_length=3,
         tools=mock_tools
     )
-    assert BalancingRule.validate(context) is None
+    assert BalancingEncoderDecoderRule.validate(context) is None
 
 def test_odd_length_chain_with_diff_two_is_invalid(mock_tools):
     """Test that an odd-length chain with difference of 2 is invalid."""
@@ -86,6 +86,6 @@ def test_odd_length_chain_with_diff_two_is_invalid(mock_tools):
         target_length=4,
         tools=mock_tools
     )
-    error = BalancingRule.validate(context)
+    error = BalancingEncoderDecoderRule.validate(context)
     assert isinstance(error, ChainRuleException)
     assert "Even-length chains must have equal numbers of encoders and decoders" in error.message

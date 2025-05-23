@@ -6,6 +6,7 @@ from pallas.tools.decoders.octal import OctalDecoder
 from pallas.tools.decoders.decimal import DecimalDecoder
 from pallas.tools.decoders.base64 import Base64Decoder
 from pallas.tools.decoders.hex import HexDecoder
+from pallas.tools.transformers.reverse import Reverse
 
 # Map of tool names to their classes
 tools = {
@@ -17,6 +18,7 @@ tools = {
     'decimal_decoder': DecimalDecoder,
     'base64_decoder': Base64Decoder,
     'hex_decoder': HexDecoder,
+    'reverse': Reverse,
 }
 
 # Help text for each tool
@@ -29,6 +31,7 @@ tool_help = {
     'decimal_decoder': "Converts decimal representation back to ASCII text.",
     'base64_decoder': "Converts Base64 encoding back to ASCII text.",
     'hex_decoder': "Converts hexadecimal representation back to ASCII text.",
+    'reverse': "Reverses the input string.",
 }
 
 def get_available_tools() -> list[str]:
