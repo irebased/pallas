@@ -14,3 +14,8 @@ def test_coverage(ctx):
 def clean(ctx):
     """Clean up build artifacts and cache"""
     ctx.run("rm -rf build/ dist/ *.egg-info .coverage htmlcov/ .pytest_cache/")
+
+@task
+def purge(ctx):
+    """Purge output files"""
+    ctx.run("rm -rf out/ logs/")

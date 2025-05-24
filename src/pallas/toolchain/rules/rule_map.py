@@ -2,6 +2,7 @@ from pallas.toolchain.rules.AlternatingRule import AlternatingRule
 from pallas.toolchain.rules.BalancingEncoderDecoderRule import BalancingEncoderDecoderRule
 from pallas.toolchain.rules.CharacterSetRule import CharacterSetRule
 from pallas.toolchain.rules.RedundantPairRule import RedundantPairRule
+from pallas.toolchain.rules.DisallowEncoderOnFinalStep import DisallowEncoderOnFinalStepRule
 
 # Map of rule names to their classes
 rules = {
@@ -9,6 +10,7 @@ rules = {
     'balancing': BalancingEncoderDecoderRule,
     'charset': CharacterSetRule,
     'redundant': RedundantPairRule,
+    'no_encoder_ending': DisallowEncoderOnFinalStepRule,
 }
 
 # Help text for each rule
@@ -17,6 +19,7 @@ rule_help = {
     'balancing': "Ensure balanced numbers of encoders and decoders.",
     'charset': "Ensure compatible character sets between adjacent tools.",
     'redundant': "Prevent redundant encode-decode operations.",
+    'no_encoder_ending': "Prevent encoders from ending the chain.",
 }
 
 def get_available_rules() -> list[str]:
