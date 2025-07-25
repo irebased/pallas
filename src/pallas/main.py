@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 import uuid
+import json
 
 from pallas.toolchain.ToolChainer import ToolChainer
 from pallas.toolchain.ToolProvider import ToolProvider
@@ -11,30 +12,95 @@ from pallas.toolchain.rules.rule_map import get_available_rules, get_rule_help, 
 from pallas.tools.tool_map import get_available_tools, get_tool_help, tools as tool_map
 from pallas.toolchain.rules.RuleEnforcer import RuleEnforcer
 
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
+# Argument schema for both CLI and JSON
+ARGUMENTS = [
+    {
+        "flags": ["-l", "--length"],
+        "dest": "length",
+        "kwargs": {"type": int, "help": "Length of tool chains to generate (default 3)", "default": None}
+    },
+    {
+        "flags": ["-v", "--verbose"],
+        "dest": "verbose",
+        "kwargs": {"action": "store_true", "help": "Enable verbose output for logging statistics", "default": False}
+    },
+    {
+        "flags": ["-b", "--balance-encodings"],
+        "dest": "balance_encodings",
+        "kwargs": {"action": "store_true", "help": "Balance encode/decode operations in chains", "default": False}
+    },
+    {
+        "flags": ["-s", "--strict-alternating"],
+        "dest": "strict_alternating",
+        "kwargs": {"action": "store_true", "help": "Enforce strictly alternating encoder/decoder operations", "default": False}
+    },
+    {
+        "flags": ["--rules"],
+        "dest": "rules",
+        "kwargs": {"nargs": "+", "choices": get_available_rules(), "help": f"Rules to apply to chains. Available rules:\n{get_rule_help()}\n", "default": None}
+    },
+    {
+        "flags": ["--tools"],
+        "dest": "tools",
+        "kwargs": {"nargs": "+", "choices": get_available_tools(), "help": f"Tools to use in chains. Available tools:\n{get_tool_help()}\n", "default": None}
+    },
+    {
+        "flags": ["-r", "--run"],
+        "dest": "run",
+        "kwargs": {"type": str, "help": "Run tool chains from a provided toolchain output file", "default": None}
+    },
+    {
+        "flags": ["-i", "--input"],
+        "dest": "input",
+        "kwargs": {"type": str, "help": "Input text to process through tool chain runs", "default": None}
+    },
+    {
+        "flags": ["-a", "--all"],
+        "dest": "all",
+        "kwargs": {"type": str, "help": "Run full workflow with input text. Specify --length (default 3)", "default": None}
+    },
+    {
+        "flags": ["--json-input"],
+        "dest": "json_input",
+        "kwargs": {"type": str, "help": "Path to JSON file with all arguments", "default": None}
+    },
+]
+
+def build_parser():
     parser = argparse.ArgumentParser(description='Pallas Tool Chain Generator and Runner')
+    for arg in ARGUMENTS:
+        parser.add_argument(*arg["flags"], dest=arg["dest"], **arg["kwargs"])
+    return parser
 
-    # Tool chain generation options
-    parser.add_argument('-l', '--length', type=int, help='Length of tool chains to generate (default 3)')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output for logging statistics')
-    parser.add_argument('-b', '--balance-encodings', action='store_true',
-                       help='Balance encode/decode operations in chains')
-    parser.add_argument('-s', '--strict-alternating', action='store_true',
-                       help='Enforce strictly alternating encoder/decoder operations')
-    parser.add_argument('--rules', nargs='+', choices=get_available_rules(),
-                       help=f'Rules to apply to chains. Available rules:\n{get_rule_help()}\n')
-    parser.add_argument('--tools', nargs='+', choices=get_available_tools(),
-                       help=f'Tools to use in chains. Available tools:\n{get_tool_help()}\n')
-
-    # Tool chain running options
-    parser.add_argument('-r', '--run', type=str, help='Run tool chains from a provided toolchain output file')
-    parser.add_argument('-i', '--input', type=str, help='Input text to process through tool chain runs')
-
-    # Full workflow option
-    parser.add_argument('-a', '--all', type=str, help='Run full workflow with input text. Specify --length (default 3)')
-
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments, supporting both CLI and JSON input."""
+    parser = build_parser()
     args = parser.parse_args()
+    args_dict = vars(args)
+
+    # If --json-input is provided, load arguments from JSON and merge
+    if args.json_input:
+        json_path = Path(args.json_input)
+        if not json_path.exists():
+            parser.error(f"JSON input file not found: {json_path}")
+        try:
+            with open(json_path, 'r') as f:
+                json_args = json.load(f)
+        except Exception as e:
+            parser.error(f"Failed to parse JSON input: {e}")
+
+        # Merge: CLI args take precedence if set (not None or not False for bools)
+        for arg in ARGUMENTS:
+            dest = arg["dest"]
+            if dest in json_args:
+                cli_val = args_dict.get(dest)
+                # For bools, only override if CLI is default (False) and JSON is True
+                if arg["kwargs"].get("action") == "store_true":
+                    if cli_val is False:
+                        setattr(args, dest, json_args[dest])
+                # For others, override if CLI is None
+                elif cli_val is None:
+                    setattr(args, dest, json_args[dest])
 
     # Validate argument combinations
     if args.run and not args.input:
